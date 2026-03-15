@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Field Notes QA Copilot</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Manual QA Exploratory Copilot</p>
+      <h1>Turn a feature brief into a usable test session.</h1>
+      <p class="lede">
+        Generate exploratory charters, edge-case prompts, and a structured session log without needing a backend or API key.
+      </p>
+      <div class="hero-actions">
+        <button id="sampleBtn" class="ghost" type="button">Load Example Brief</button>
+        <button id="clearBtn" class="ghost" type="button">Clear Draft</button>
+      </div>
+    </section>
+
+    <section class="panel grid">
+      <form id="brief-form" class="card input-card">
+        <div class="card-header">
+          <h2>Feature Brief</h2>
+          <p>Describe the change and the business risk.</p>
+        </div>
+
+        <section class="tips-banner">
+          <div>
+            <strong>Fast path</strong>
+            <p>Fill only story, summary, and known risks to get a usable first session pack.</p>
+          </div>
+          <details>
+            <summary>What makes a good brief?</summary>
+            <ul class="tip-list">
+              <li>State the user goal and the risky outcome if the feature fails.</li>
+              <li>Mention roles, channels, environments, or external systems involved.</li>
+              <li>List recent bugs, constraints, or areas that changed late.</li>
+            </ul>
+          </details>
+        </section>
+
+        <label>
+          Feature / story
+          <span class="hint">Name the workflow, not the ticket title.</span>
+          <input id="featureName" name="featureName" type="text" placeholder="Password reset with email verification" required>
+        </label>
+
+        <label>
+          Summary
+          <span class="hint">Include why the feature matters and what failure would hurt.</span>
+          <textarea id="summary" name="summary" rows="5" placeholder="Users request a reset link, confirm via email, and set a new password. High risk because login and account access are affected." required></textarea>
+        </label>
+
+        <label>
+          Personas
+          <span class="hint">Comma-separated roles or user types.</span>
+          <input id="personas" name="personas" type="text" placeholder="new user, returning user, admin">
+        </label>
+        <div class="chip-row" data-target="personas">
+          <button type="button" class="chip">guest</button>
+          <button type="button" class="chip">returning user</button>
+          <button type="button" class="chip">admin</button>
+          <button type="button" class="chip">support agent</button>
+        </div>
+
+        <label>
+          Platforms / environments
+          <span class="hint">Browsers, devices, OS variants, environments.</span>
+          <input id="platforms" name="platforms" type="text" placeholder="Chrome, Safari iPhone, staging">
+        </label>
+        <div class="chip-row" data-target="platforms">
+          <button type="button" class="chip">Chrome</button>
+          <button type="button" class="chip">Firefox</button>
+          <button type="button" class="chip">Safari iPhone</button>
+          <button type="button" class="chip">staging</button>
+        </div>
+
+        <label>
+          Known risks or constraints
+          <span class="hint">List unstable dependencies, edge cases, or sensitive business rules.</span>
+          <textarea id="risks" name="risks" rows="4" placeholder="email delays, token expiry, localization, weak passwords"></textarea>
+        </label>
+        <div class="chip-row" data-target="risks">
+          <button type="button" class="chip">localization</button>
+          <button type="button" class="chip">slow backend</button>
+          <button type="button" class="chip">permissions</button>
+          <button type="button" class="chip">token expiry</button>
+          <button type="button" class="chip">duplicate submission</button>
+        </div>
+
+        <label>
+          Notes from product / dev
+          <span class="hint">Acceptance criteria, support tickets, release notes, or known compromises.</span>
+          <textarea id="notes" name="notes" rows="4" placeholder="Acceptance criteria, special flags, support cases, recent bugs"></textarea>
+        </label>
+
+        <div class="form-actions">
+          <button type="submit" class="primary">Generate Session Pack</button>
+          <p class="microcopy">Drafts autosave in this browser.</p>
+        </div>
+      </form>
+
+      <section class="card output-card">
+        <div class="card-header">
+          <h2>Session Pack</h2>
+          <p>Charters, probes, and defect prompts tuned from your brief.</p>
+        </div>
+
+        <div id="emptyState" class="empty-state">
+          <p>No session pack yet. Fill in the feature brief and generate one.</p>
+        </div>
+
+        <div id="results" class="results hidden">
+          <div class="summary-strip">
+            <div>
+              <span class="meta-label">Mission</span>
+              <strong id="missionText"></strong>
+            </div>
+            <div>
+              <span class="meta-label">Risk level</span>
+              <strong id="riskLevel"></strong>
+            </div>
+            <div>
+              <span class="meta-label">Topics</span>
+              <strong id="topicSummary"></strong>
+            </div>
+            <div>
+              <span class="meta-label">Counts</span>
+              <strong id="packCounts"></strong>
+            </div>
+          </div>
+
+          <section class="section-header">
+            <div>
+              <h3>Charters</h3>
+              <p>Use these as session missions, not scripts.</p>
+            </div>
+            <ul id="charterList" class="stack-list"></ul>
+          </section>
+
+          <section class="section-header">
+            <div>
+              <h3>Edge-Case Probes</h3>
+              <p>Scan these when you need new angles mid-session.</p>
+            </div>
+            <ul id="probeList" class="stack-list"></ul>
+          </section>
+
+          <section class="section-header">
+            <div>
+              <h3>Coverage Map</h3>
+              <p>Mark what you touched and what still needs a pass.</p>
+            </div>
+            <ul id="coverageList" class="stack-list compact"></ul>
+          </section>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel grid session-grid">
+      <section class="card">
+        <div class="card-header">
+          <h2>Live Session</h2>
+          <p>Capture notes as you test.</p>
+        </div>
+        <details class="inline-tip">
+          <summary>Session logging tips</summary>
+          <ul class="tip-list">
+            <li>Write what you learned, not every click you made.</li>
+            <li>Note what you skipped on purpose so the coverage gap is explicit.</li>
+            <li>Capture filenames, URLs, and timestamps while they are easy to grab.</li>
+          </ul>
+        </details>
+
+        <div class="session-fields">
+          <label>
+            Session goal
+            <input id="sessionGoal" type="text" placeholder="Validate reset flow across valid and invalid email/token states">
+          </label>
+
+          <label>
+            Coverage notes
+            <textarea id="coverageNotes" rows="4" placeholder="What you covered, skipped, or want to revisit"></textarea>
+          </label>
+
+          <label>
+            Observations
+            <textarea id="observations" rows="6" placeholder="Fast notes from the exploratory session"></textarea>
+          </label>
+
+          <label>
+            Evidence links or filenames
+            <textarea id="evidence" rows="3" placeholder="screens/reset-expired-token.png, HAR file, screen recording"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>Defect Draft</h2>
+          <p>Structure issues while context is fresh.</p>
+        </div>
+        <details class="inline-tip">
+          <summary>Bug drafting tips</summary>
+          <ul class="tip-list">
+            <li>Write the title as observed behavior plus affected area.</li>
+            <li>Use expected vs actual to show user impact, not just technical mismatch.</li>
+            <li>Keep steps short enough that another QA can replay them quickly.</li>
+          </ul>
+        </details>
+
+        <div class="session-fields">
+          <label>
+            Bug title
+            <input id="bugTitle" type="text" placeholder="Expired reset token shows success confirmation">
+          </label>
+
+          <label>
+            Steps to reproduce
+            <textarea id="steps" rows="5" placeholder="1. Request reset
+2. Wait for token expiry
+3. Open link
+4. Submit new password"></textarea>
+          </label>
+
+          <label>
+            Expected result
+            <textarea id="expected" rows="3" placeholder="User should be blocked and asked to request a new link"></textarea>
+          </label>
+
+          <label>
+            Actual result
+            <textarea id="actual" rows="3" placeholder="Success message appears even though password does not change"></textarea>
+          </label>
+
+          <label>
+            Severity hint
+            <select id="severity">
+              <option>Critical</option>
+              <option selected>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+          </label>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel actions">
+      <button id="exportBtn" class="secondary">Export Session Markdown</button>
+      <button id="copyBtn" class="ghost" type="button">Copy Session Summary</button>
+      <p id="statusMessage" class="status">Generate a session pack first, then export your notes.</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
