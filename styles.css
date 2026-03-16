@@ -115,6 +115,51 @@ h1 {
   grid-template-columns: 1.05fr 0.95fr;
 }
 
+.sql-grid {
+  grid-template-columns: 1fr 0.95fr;
+}
+
+.api-grid {
+  grid-template-columns: 1fr 0.95fr;
+}
+
+.workspace-view.hidden-workspace {
+  display: none;
+}
+
+.workspace-switcher {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.workspace-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tab-btn {
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--text);
+  border: 1px solid rgba(31, 27, 22, 0.12);
+  font-weight: 600;
+}
+
+.tab-btn.is-active {
+  background: rgba(15, 118, 110, 0.12);
+  color: var(--accent-strong);
+  border-color: rgba(15, 118, 110, 0.22);
+}
+
 .onboarding-card {
   padding-bottom: 16px;
 }
@@ -123,6 +168,19 @@ h1 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dashboard-metric {
+  margin-bottom: 0;
+  color: var(--accent-strong);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.82rem;
 }
 
 .step-card {
@@ -195,6 +253,17 @@ summary,
 .saved-item p,
 .template-preview {
   color: var(--muted);
+}
+
+.code-area {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  min-height: 240px;
+}
+
+.compact-code {
+  min-height: 120px;
 }
 
 .hint {
@@ -526,6 +595,29 @@ summary {
   font-size: 0.76rem;
 }
 
+.activity-type {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(31, 27, 22, 0.08);
+  color: #4d443a;
+  font-size: 0.76rem;
+}
+
+.sql-snippet {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(31, 27, 22, 0.04);
+  border: 1px solid rgba(31, 27, 22, 0.08);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .small-btn {
   padding: 8px 12px;
   font-size: 0.85rem;
@@ -580,11 +672,17 @@ summary {
   .grid,
   .session-grid,
   .history-grid,
-  .snapshot-grid {
+  .snapshot-grid,
+  .sql-grid,
+  .api-grid {
     grid-template-columns: 1fr;
   }
 
   .onboarding-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-grid {
     grid-template-columns: 1fr;
   }
 
@@ -633,5 +731,10 @@ summary {
 
   .hero-actions {
     justify-content: flex-start;
+  }
+
+  .workspace-switcher {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

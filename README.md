@@ -13,6 +13,10 @@ Local-first MVP for manual QA exploratory testing.
 - saves sessions into searchable local history
 - supports multiple bug drafts per session
 - includes feature templates, risk templates, and Jira-friendly export text
+- includes a `Home` dashboard with recent activity and shared tags
+- includes a local SQL queries workspace for saving your own QA database queries
+- includes a local API test cases workspace for saving your own reusable API checks
+- supports full workspace backup export/import as JSON
 
 ## Run it
 
@@ -24,6 +28,9 @@ Open [/Users/andreiolaru/Library/CloudStorage/Dropbox/OLARUAI/qa-tools/index.htm
 - no authentication
 - no external API/model integration
 - browser `localStorage` persistence for drafts and saved sessions
+- browser `localStorage` persistence for saved SQL queries
+- browser `localStorage` persistence for saved API test cases
+- JSON backup/export for moving local data between browsers or machines
 - Jira export is file-based, not API-based
 
 ## Good next steps

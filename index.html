@@ -28,6 +28,86 @@
       </div>
     </section>
 
+    <section class="panel workspace-switcher card">
+      <div class="workspace-tabs" role="tablist" aria-label="Workspace switcher">
+        <button id="showHomeBtn" class="tab-btn is-active" type="button" role="tab" aria-selected="true">
+          <i class="fa-solid fa-house"></i> Home
+        </button>
+        <button id="showExploratoryBtn" class="tab-btn" type="button" role="tab" aria-selected="false">
+          <i class="fa-solid fa-compass-drafting"></i> Exploratory Workspace
+        </button>
+        <button id="showSqlBtn" class="tab-btn" type="button" role="tab" aria-selected="false">
+          <i class="fa-solid fa-database"></i> SQL Queries
+        </button>
+        <button id="showApiBtn" class="tab-btn" type="button" role="tab" aria-selected="false">
+          <i class="fa-solid fa-plug-circle-bolt"></i> API Test Cases
+        </button>
+      </div>
+      <div class="workspace-actions">
+        <button id="exportDataBtn" class="ghost" type="button"><i class="fa-solid fa-box-archive"></i> Export Backup</button>
+        <button id="importDataBtn" class="ghost" type="button"><i class="fa-solid fa-file-import"></i> Import Backup</button>
+        <input id="importDataInput" type="file" accept="application/json" hidden>
+      </div>
+    </section>
+
+    <div id="homeWorkspace" class="workspace-view">
+      <section class="panel card onboarding-card">
+        <div class="card-header">
+          <h2><i class="fa-solid fa-house"></i> QA Workspace Home</h2>
+          <p>Jump into the area you need and keep related QA knowledge close together.</p>
+        </div>
+        <div class="dashboard-grid">
+          <article class="step-card">
+            <span class="step-number">1</span>
+            <h3>Exploratory Sessions</h3>
+            <p>Create and reuse manual QA session packs, notes, and bug drafts.</p>
+            <p class="dashboard-metric" id="homeSessionCount">0 sessions saved</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">2</span>
+            <h3>SQL Checks</h3>
+            <p>Store database validation queries with safety levels, tags, and notes.</p>
+            <p class="dashboard-metric" id="homeSqlCount">0 SQL queries saved</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">3</span>
+            <h3>API Cases</h3>
+            <p>Save reusable request/response checks for endpoints and environments.</p>
+            <p class="dashboard-metric" id="homeApiCount">0 API cases saved</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">4</span>
+            <h3>Backup</h3>
+            <p>Export or import the full local workspace as JSON before backend sync exists.</p>
+            <p class="dashboard-metric" id="homeBackupHint">Local-first storage active</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel grid history-grid">
+        <section class="card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-layer-group"></i> Recent Activity</h2>
+            <p>Your latest saved sessions, queries, and API cases.</p>
+          </div>
+          <div id="recentActivityList" class="saved-list empty-list">
+            <p class="microcopy">No saved activity yet.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-link"></i> Shared Tags</h2>
+            <p>Use the same tags across sessions, SQL, and API cases to keep related knowledge connected.</p>
+          </div>
+          <div id="tagSummaryList" class="saved-list empty-list">
+            <p class="microcopy">No shared tags yet.</p>
+          </div>
+        </section>
+      </section>
+    </div>
+
+    <div id="exploratoryWorkspace" class="workspace-view">
     <section class="panel card onboarding-card">
       <div class="card-header">
         <h2><i class="fa-solid fa-map-signs"></i> How To Use This Tool</h2>
@@ -401,10 +481,14 @@
           Session tags
           <input id="sessionTags" type="text" placeholder="auth, regression, release-blocker">
         </label>
+        <label>
+          Related links / references
+          <input id="sessionLinks" type="text" placeholder="SQL: Find user by email, API: Create order returns 201">
+        </label>
         <div class="tips-banner compact-banner">
           <div>
             <strong>What gets saved</strong>
-            <p>Brief, session notes, generated pack, bug drafts, tester, build, tags, and save timestamp.</p>
+            <p>Brief, session notes, generated pack, bug drafts, tester, build, tags, related links, and save timestamp.</p>
           </div>
         </div>
         <button id="saveSessionBtn" class="primary" type="button"><i class="fa-solid fa-bookmark"></i> Save Session</button>
@@ -417,6 +501,275 @@
       <button id="copyBtn" class="ghost" type="button"><i class="fa-solid fa-copy"></i> Copy Session Summary</button>
       <p id="statusMessage" class="status">Start with the Feature Brief, then click Generate Session Pack.</p>
     </section>
+    </div>
+
+    <div id="sqlWorkspace" class="workspace-view hidden-workspace">
+      <section class="panel card onboarding-card">
+        <div class="card-header">
+          <h2><i class="fa-solid fa-database"></i> SQL Queries Workspace</h2>
+          <p>Save your own QA SQL queries, organize them by category, and copy them when you need them.</p>
+        </div>
+        <div class="onboarding-grid">
+          <article class="step-card">
+            <span class="step-number">1</span>
+            <h3>Create a query</h3>
+            <p>Add the query name, category, database type, and the SQL you want to keep.</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">2</span>
+            <h3>Save it locally</h3>
+            <p>Saved queries stay in this browser so you can reuse them in future QA sessions.</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">3</span>
+            <h3>Search and filter</h3>
+            <p>Find queries by name, category, database, or notes when investigating issues.</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">4</span>
+            <h3>Copy and run</h3>
+            <p>Copy the SQL text and use it in your database tool of choice.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel grid sql-grid">
+        <section class="card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-file-code"></i> Query Editor</h2>
+            <p>Create or update your own SQL snippets.</p>
+          </div>
+
+          <div class="draft-toolbar">
+            <div class="draft-meta">
+              <span class="pill" id="activeSqlLabel">New query</span>
+              <span class="draft-stamp" id="activeSqlStamp">Not saved yet</span>
+            </div>
+            <div class="inline-actions">
+              <button id="resetSqlBtn" type="button" class="ghost"><i class="fa-solid fa-file-circle-plus"></i> New Query</button>
+              <button id="saveSqlBtn" type="button" class="secondary"><i class="fa-solid fa-floppy-disk"></i> Save Query</button>
+            </div>
+          </div>
+
+          <div class="session-fields">
+            <label>
+              Query name
+              <input id="sqlName" type="text" placeholder="Find user by email">
+            </label>
+
+            <div class="snapshot-grid">
+              <label>
+                Category
+                <input id="sqlCategory" type="text" placeholder="users, orders, payments">
+              </label>
+              <label>
+                Database
+                <select id="sqlDialect">
+                  <option selected>PostgreSQL</option>
+                  <option>MySQL</option>
+                  <option>SQL Server</option>
+                  <option>SQLite</option>
+                  <option>Generic SQL</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Shared tags
+              <input id="sqlTags" type="text" placeholder="auth, users, smoke">
+            </label>
+
+            <label>
+              Safety
+              <select id="sqlSafety">
+                <option selected>Read only</option>
+                <option>Setup / Insert</option>
+                <option>Update / Reset</option>
+                <option>Delete / Destructive</option>
+              </select>
+            </label>
+
+            <label>
+              SQL query
+              <textarea id="sqlQueryText" rows="10" class="code-area" placeholder="select * from users where email = :email;"></textarea>
+            </label>
+
+            <label>
+              Notes
+              <textarea id="sqlNotes" rows="4" placeholder="Explain placeholders, expected use, and any warnings."></textarea>
+            </label>
+
+            <label>
+              Related links / references
+              <input id="sqlLinks" type="text" placeholder="Session: Password reset flow, API: Get user profile">
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-book-bookmark"></i> Saved Queries</h2>
+            <p>Search your personal QA query library.</p>
+          </div>
+
+          <div class="history-toolbar">
+            <input id="sqlSearch" type="search" placeholder="Search query name, category, database, or notes">
+            <span class="pill" id="sqlCount">0 queries</span>
+          </div>
+
+          <div id="sqlList" class="saved-list empty-list">
+            <p class="microcopy">No saved SQL queries yet.</p>
+          </div>
+        </section>
+      </section>
+    </div>
+
+    <div id="apiWorkspace" class="workspace-view hidden-workspace">
+      <section class="panel card onboarding-card">
+        <div class="card-header">
+          <h2><i class="fa-solid fa-plug-circle-bolt"></i> API Test Cases Workspace</h2>
+          <p>Save your own QA API checks with request details, expected validations, and notes.</p>
+        </div>
+        <div class="onboarding-grid">
+          <article class="step-card">
+            <span class="step-number">1</span>
+            <h3>Define the request</h3>
+            <p>Capture method, endpoint, environment, auth notes, headers, and request body.</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">2</span>
+            <h3>Add expected checks</h3>
+            <p>Record expected status code, response checks, negative cases, and business rules.</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">3</span>
+            <h3>Save and search</h3>
+            <p>Store reusable endpoint cases and find them later by tag, method, or environment.</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">4</span>
+            <h3>Copy and reuse</h3>
+            <p>Copy the saved API case and use it in your API client, docs, or test notes.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel grid api-grid">
+        <section class="card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-circle-nodes"></i> API Case Editor</h2>
+            <p>Create or update reusable API test cases.</p>
+          </div>
+
+          <div class="draft-toolbar">
+            <div class="draft-meta">
+              <span class="pill" id="activeApiLabel">New API case</span>
+              <span class="draft-stamp" id="activeApiStamp">Not saved yet</span>
+            </div>
+            <div class="inline-actions">
+              <button id="resetApiBtn" type="button" class="ghost"><i class="fa-solid fa-file-circle-plus"></i> New API Case</button>
+              <button id="saveApiBtn" type="button" class="secondary"><i class="fa-solid fa-floppy-disk"></i> Save API Case</button>
+            </div>
+          </div>
+
+          <div class="session-fields">
+            <label>
+              Case name
+              <input id="apiName" type="text" placeholder="Create order returns 201 with order id">
+            </label>
+
+            <div class="snapshot-grid">
+              <label>
+                Method
+                <select id="apiMethod">
+                  <option>GET</option>
+                  <option selected>POST</option>
+                  <option>PUT</option>
+                  <option>PATCH</option>
+                  <option>DELETE</option>
+                </select>
+              </label>
+              <label>
+                Environment
+                <input id="apiEnvironment" type="text" placeholder="staging">
+              </label>
+            </div>
+
+            <label>
+              Endpoint
+              <input id="apiEndpoint" type="text" placeholder="/api/v1/orders">
+            </label>
+
+            <label>
+              Category / tags
+              <input id="apiTags" type="text" placeholder="orders, checkout, smoke">
+            </label>
+
+            <label>
+              Auth notes
+              <input id="apiAuth" type="text" placeholder="Bearer token with checkout scope">
+            </label>
+
+            <label>
+              Headers
+              <textarea id="apiHeaders" rows="4" class="code-area compact-code" placeholder='Content-Type: application/json&#10;X-Tenant-Id: demo'></textarea>
+            </label>
+
+            <label>
+              Request body
+              <textarea id="apiBody" rows="7" class="code-area compact-code" placeholder='{"user_id": ":user_id", "items": [{"sku": "ABC-123", "qty": 1}]}'></textarea>
+            </label>
+
+            <div class="snapshot-grid">
+              <label>
+                Expected status
+                <input id="apiExpectedStatus" type="text" placeholder="201">
+              </label>
+              <label>
+                Case type
+                <select id="apiCaseType">
+                  <option selected>Positive</option>
+                  <option>Negative</option>
+                  <option>Boundary</option>
+                  <option>Regression</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Expected response checks
+              <textarea id="apiChecks" rows="5" placeholder="response contains order_id&#10;status is pending_payment&#10;no internal error fields exposed"></textarea>
+            </label>
+
+            <label>
+              Notes
+              <textarea id="apiNotes" rows="4" placeholder="Mention placeholders, sequence dependencies, and follow-up checks."></textarea>
+            </label>
+
+            <label>
+              Related links / references
+              <input id="apiLinks" type="text" placeholder="Session: Checkout flow, SQL: Find order by id">
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-book-open-reader"></i> Saved API Cases</h2>
+            <p>Search your personal API testing library.</p>
+          </div>
+
+          <div class="history-toolbar">
+            <input id="apiSearch" type="search" placeholder="Search case name, endpoint, method, environment, or tags">
+            <span class="pill" id="apiCount">0 cases</span>
+          </div>
+
+          <div id="apiList" class="saved-list empty-list">
+            <p class="microcopy">No saved API cases yet.</p>
+          </div>
+        </section>
+      </section>
+    </div>
 
     <footer class="panel footer-card card">
       <div class="footer-grid">
