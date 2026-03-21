@@ -657,6 +657,39 @@
       <section class="panel grid api-grid">
         <section class="card">
           <div class="card-header">
+            <h2><i class="fa-solid fa-file-import"></i> Swagger to Postman</h2>
+            <p>Upload an OpenAPI / Swagger JSON file and generate a Postman collection you can download.</p>
+          </div>
+
+          <div class="session-fields">
+            <label>
+              Collection name override
+              <input id="postmanCollectionName" type="text" placeholder="Payments API QA Collection">
+            </label>
+
+            <label>
+              Swagger / OpenAPI JSON
+              <input id="swaggerFileInput" type="file" accept="application/json,.json">
+            </label>
+
+            <div class="inline-actions">
+              <button id="generatePostmanBtn" type="button" class="secondary"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Collection</button>
+              <button id="downloadPostmanBtn" type="button" class="ghost"><i class="fa-solid fa-file-arrow-down"></i> Download Postman Collection</button>
+            </div>
+
+            <div class="tips-banner compact-banner">
+              <div>
+                <strong>What gets generated</strong>
+                <p>Folders by tag, requests by endpoint, base URL variable, auth hints, headers, request bodies, and basic QA-friendly test scripts.</p>
+              </div>
+            </div>
+
+            <div id="postmanSummary" class="template-preview">No OpenAPI file loaded yet.</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
             <h2><i class="fa-solid fa-circle-nodes"></i> API Case Editor</h2>
             <p>Create or update reusable API test cases.</p>
           </div>

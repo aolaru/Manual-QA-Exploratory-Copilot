@@ -240,6 +240,11 @@ const apiMethod = document.querySelector("#apiMethod");
 const apiEnvironment = document.querySelector("#apiEnvironment");
 const apiEndpoint = document.querySelector("#apiEndpoint");
 const apiTags = document.querySelector("#apiTags");
+const postmanCollectionName = document.querySelector("#postmanCollectionName");
+const swaggerFileInput = document.querySelector("#swaggerFileInput");
+const generatePostmanBtn = document.querySelector("#generatePostmanBtn");
+const downloadPostmanBtn = document.querySelector("#downloadPostmanBtn");
+const postmanSummary = document.querySelector("#postmanSummary");
 const apiAuth = document.querySelector("#apiAuth");
 const apiHeaders = document.querySelector("#apiHeaders");
 const apiBody = document.querySelector("#apiBody");
@@ -297,6 +302,8 @@ let sqlQueries = loadSqlQueries();
 let activeSqlId = null;
 let apiCases = loadApiCases();
 let activeApiId = null;
+let uploadedOpenApiSpec = null;
+let generatedPostmanCollection = null;
 
 hydrateDraft();
 bindAutosave();
@@ -533,6 +540,8 @@ apiSearch.addEventListener("input", renderApiCases);
 exportDataBtn.addEventListener("click", exportWorkspaceBackup);
 importDataBtn.addEventListener("click", () => importDataInput.click());
 importDataInput.addEventListener("change", importWorkspaceBackup);
+generatePostmanBtn.addEventListener("click", generatePostmanCollectionFromUpload);
+downloadPostmanBtn.addEventListener("click", downloadGeneratedPostmanCollection);
 
 function getBriefState() {
   return Object.fromEntries(new FormData(form).entries());
@@ -591,6 +600,45 @@ function collectApiForm() {
     notes: apiNotes.value.trim(),
     links: apiLinks.value.trim(),
   };
+}
+
+function generatePostmanCollectionFromUpload() {
+  const [file] = swaggerFileInput.files || [];
+  if (!file) {
+    statusMessage.textContent = "Choose a Swagger / OpenAPI JSON file first.";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      uploadedOpenApiSpec = JSON.parse(String(reader.result || "{}"));
+      generatedPostmanCollection = convertOpenApiToPostmanCollection(
+        uploadedOpenApiSpec,
+        postmanCollectionName.value.trim()
+      );
+      renderPostmanSummary(generatedPostmanCollection.summary);
+      statusMessage.textContent = "Postman collection generated from the uploaded OpenAPI file.";
+    } catch (error) {
+      generatedPostmanCollection = null;
+      renderPostmanSummary(null, error instanceof Error ? error.message : "Invalid OpenAPI file.");
+      statusMessage.textContent = "Postman generation failed. Check that the uploaded file is valid OpenAPI / Swagger JSON.";
+    }
+  };
+  reader.readAsText(file);
+}
+
+function downloadGeneratedPostmanCollection() {
+  if (!generatedPostmanCollection) {
+    statusMessage.textContent = "Generate a Postman collection first.";
+    return;
+  }
+
+  downloadText(
+    `postman-${slugify(generatedPostmanCollection.collection.info.name || "collection")}.json`,
+    JSON.stringify(generatedPostmanCollection.collection, null, 2)
+  );
+  statusMessage.textContent = "Postman collection download created.";
 }
 
 function buildSessionRecord() {
@@ -1088,6 +1136,22 @@ function clearApiForm() {
   apiNotes.value = "";
   apiLinks.value = "";
   renderApiCases();
+}
+
+function renderPostmanSummary(summary, errorMessage = "") {
+  if (errorMessage) {
+    postmanSummary.textContent = errorMessage;
+    return;
+  }
+
+  if (!summary) {
+    postmanSummary.textContent = "No OpenAPI file loaded yet.";
+    return;
+  }
+
+  postmanSummary.textContent =
+    `${summary.name} • ${summary.requestCount} requests • ${summary.folderCount} folders • ` +
+    `base URL ${summary.baseUrl || "not detected"} • auth ${summary.authSchemes || "not detected"}`;
 }
 
 function buildMarkdown(sessionRecord) {
@@ -1596,6 +1660,322 @@ function renderLinksRow(links) {
   const items = Array.isArray(links) ? links : parseCsvish(links || "");
   if (!items.length) return "";
   return `<p class="saved-submeta"><strong>Related:</strong> ${escapeHtml(items.join(" • "))}</p>`;
+}
+
+function convertOpenApiToPostmanCollection(spec, collectionNameOverride = "") {
+  const version = detectOpenApiVersion(spec);
+  const baseUrl = deriveBaseUrl(spec, version);
+  const grouped = new Map();
+  const requests = [];
+
+  Object.entries(spec.paths || {}).forEach(([pathName, pathItem]) => {
+    Object.entries(pathItem || {}).forEach(([method, operation]) => {
+      const normalizedMethod = method.toUpperCase();
+      if (!["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"].includes(normalizedMethod)) return;
+      const request = buildPostmanRequest({
+        version,
+        spec,
+        pathName,
+        method: normalizedMethod,
+        operation: operation || {},
+        pathItem: pathItem || {},
+        baseUrl,
+      });
+      requests.push(request.summary);
+      const tagName = request.tag;
+      if (!grouped.has(tagName)) grouped.set(tagName, []);
+      grouped.get(tagName).push(request.item);
+    });
+  });
+
+  const collectionName =
+    collectionNameOverride ||
+    spec.info?.title ||
+    spec.swagger ||
+    spec.openapi ||
+    "Generated QA API Collection";
+
+  const item = [...grouped.entries()]
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([tag, items]) => ({
+      name: tag,
+      item: items.sort((left, right) => left.name.localeCompare(right.name)),
+    }));
+
+  return {
+    collection: {
+      info: {
+        name: collectionName,
+        schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        description: buildCollectionDescription(spec, requests),
+      },
+      variable: [
+        {
+          key: "baseUrl",
+          value: baseUrl || "https://example.com",
+          type: "string",
+        },
+      ],
+      item,
+    },
+    summary: {
+      name: collectionName,
+      requestCount: requests.length,
+      folderCount: item.length,
+      baseUrl,
+      authSchemes: describeAuthSchemes(spec, version),
+    },
+  };
+}
+
+function buildPostmanRequest({ version, spec, pathName, method, operation, pathItem, baseUrl }) {
+  const tag = operation.tags?.[0] || "Untagged";
+  const parameters = collectOperationParameters(version, operation, pathItem);
+  const pathParams = parameters.filter((parameter) => parameter.in === "path");
+  const queryParams = parameters
+    .filter((parameter) => parameter.in === "query")
+    .map((parameter) => ({
+      key: parameter.name,
+      value: sampleValueFromParameter(spec, parameter),
+      description: parameter.description || "",
+      disabled: !parameter.required,
+    }));
+  const headerParams = parameters
+    .filter((parameter) => parameter.in === "header")
+    .map((parameter) => ({
+      key: parameter.name,
+      value: sampleValueFromParameter(spec, parameter),
+      type: "text",
+      description: parameter.description || "",
+      disabled: !parameter.required,
+    }));
+
+  const resolvedPath = pathName.replace(/\{([^}]+)\}/g, "{{$1}}");
+  const header = [
+    ...headerParams,
+    ...deriveContentHeaders(version, operation, method),
+  ];
+
+  const auth = buildAuthBlock(spec, operation, version);
+  const body = buildRequestBody(version, spec, operation, method);
+  const expectedStatus = deriveExpectedStatus(operation.responses || {});
+
+  const request = {
+    method,
+    header,
+    url: {
+      raw: `{{baseUrl}}${resolvedPath}`,
+      host: ["{{baseUrl}}"],
+      path: resolvedPath.replace(/^\//, "").split("/").filter(Boolean),
+      query: queryParams,
+      variable: pathParams.map((parameter) => ({
+        key: parameter.name,
+        value: sampleValueFromParameter(spec, parameter),
+        description: parameter.description || "",
+      })),
+    },
+    description: buildRequestDescription(operation, expectedStatus),
+  };
+  if (auth) request.auth = auth;
+  if (body) request.body = body;
+
+  return {
+    tag,
+    summary: {
+      tag,
+      method,
+      pathName,
+      expectedStatus,
+    },
+    item: {
+      name: operation.summary || operation.operationId || `${method} ${pathName}`,
+      request,
+      event: buildPostmanTests(expectedStatus),
+      response: [],
+    },
+  };
+}
+
+function buildCollectionDescription(spec, requests) {
+  return [
+    spec.info?.description || "",
+    `Generated for QA from OpenAPI / Swagger.`,
+    `Requests: ${requests.length}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function buildRequestDescription(operation, expectedStatus) {
+  return [
+    operation.description || operation.summary || "",
+    expectedStatus ? `Expected status: ${expectedStatus}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function buildPostmanTests(expectedStatus) {
+  if (!expectedStatus) return [];
+  return [
+    {
+      listen: "test",
+      script: {
+        type: "text/javascript",
+        exec: [
+          `pm.test("Status code is ${expectedStatus}", function () {`,
+          `  pm.response.to.have.status(${Number(expectedStatus)});`,
+          `});`,
+        ],
+      },
+    },
+  ];
+}
+
+function buildAuthBlock(spec, operation, version) {
+  const security = operation.security || spec.security || [];
+  if (!security.length) return null;
+  const schemeName = Object.keys(security[0])[0];
+  const scheme = getSecurityScheme(spec, version, schemeName);
+  if (!scheme) return null;
+
+  if (scheme.type === "http" && scheme.scheme === "bearer") {
+    return { type: "bearer", bearer: [{ key: "token", value: "{{bearerToken}}", type: "string" }] };
+  }
+  if (scheme.type === "apiKey") {
+    return {
+      type: "apikey",
+      apikey: [
+        { key: "key", value: scheme.name || schemeName, type: "string" },
+        { key: "value", value: `{{${schemeName}}}`, type: "string" },
+        { key: "in", value: scheme.in || "header", type: "string" },
+      ],
+    };
+  }
+  if (scheme.type === "http" && scheme.scheme === "basic") {
+    return {
+      type: "basic",
+      basic: [
+        { key: "username", value: "{{username}}", type: "string" },
+        { key: "password", value: "{{password}}", type: "string" },
+      ],
+    };
+  }
+  return null;
+}
+
+function buildRequestBody(version, spec, operation, method) {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) return undefined;
+
+  if (version === 3) {
+    const content = operation.requestBody?.content || {};
+    const mediaType = Object.keys(content)[0];
+    if (!mediaType) return undefined;
+    const media = content[mediaType];
+    const bodyExample = media.example || media.examples?.default?.value || sampleFromSchema(spec, media.schema);
+    return buildBodyFromMediaType(mediaType, bodyExample);
+  }
+
+  const bodyParam = (operation.parameters || []).find((parameter) => parameter.in === "body");
+  if (!bodyParam) return undefined;
+  const bodyExample = bodyParam.example || sampleFromSchema(spec, bodyParam.schema);
+  return buildBodyFromMediaType("application/json", bodyExample);
+}
+
+function buildBodyFromMediaType(mediaType, exampleValue) {
+  const value = typeof exampleValue === "string" ? exampleValue : JSON.stringify(exampleValue ?? {}, null, 2);
+  if (mediaType.includes("json")) {
+    return { mode: "raw", raw: value, options: { raw: { language: "json" } } };
+  }
+  return { mode: "raw", raw: value };
+}
+
+function collectOperationParameters(version, operation, pathItem) {
+  const merged = [...(pathItem.parameters || []), ...(operation.parameters || [])];
+  if (version === 3 && operation.requestBody) return merged;
+  return merged;
+}
+
+function deriveContentHeaders(version, operation, method) {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) return [];
+  if (version === 3) {
+    const mediaType = Object.keys(operation.requestBody?.content || {})[0];
+    return mediaType ? [{ key: "Content-Type", value: mediaType, type: "text" }] : [];
+  }
+
+  const consumes = operation.consumes || [];
+  return consumes[0] ? [{ key: "Content-Type", value: consumes[0], type: "text" }] : [];
+}
+
+function deriveExpectedStatus(responses) {
+  const preferred = Object.keys(responses).find((code) => /^2\d\d$/.test(code));
+  return preferred || Object.keys(responses)[0] || "";
+}
+
+function detectOpenApiVersion(spec) {
+  if (spec.openapi) return 3;
+  if (spec.swagger) return 2;
+  throw new Error("Unsupported spec. Upload OpenAPI 3.x or Swagger 2.0 JSON.");
+}
+
+function deriveBaseUrl(spec, version) {
+  if (version === 3) {
+    const url = spec.servers?.[0]?.url || "";
+    return url.replace(/\{([^}]+)\}/g, "{{$1}}");
+  }
+
+  const scheme = spec.schemes?.[0] || "https";
+  const host = spec.host || "example.com";
+  const basePath = spec.basePath || "";
+  return `${scheme}://${host}${basePath}`;
+}
+
+function describeAuthSchemes(spec, version) {
+  const schemes = version === 3 ? Object.keys(spec.components?.securitySchemes || {}) : Object.keys(spec.securityDefinitions || {});
+  return schemes.length ? schemes.join(", ") : "none";
+}
+
+function getSecurityScheme(spec, version, schemeName) {
+  if (version === 3) return spec.components?.securitySchemes?.[schemeName] || null;
+  return spec.securityDefinitions?.[schemeName] || null;
+}
+
+function sampleValueFromParameter(spec, parameter) {
+  if (parameter.example !== undefined) return String(parameter.example);
+  const schema = parameter.schema || parameter;
+  const sample = sampleFromSchema(spec, schema);
+  return typeof sample === "object" ? JSON.stringify(sample) : String(sample);
+}
+
+function sampleFromSchema(spec, schema) {
+  if (!schema) return "";
+  if (schema.example !== undefined) return schema.example;
+  if (schema.default !== undefined) return schema.default;
+  if (schema.$ref) return sampleFromSchema(spec, resolveSchemaRef(spec, schema.$ref));
+  if (schema.enum?.length) return schema.enum[0];
+  if (schema.type === "string") {
+    if (schema.format === "date-time") return "2026-03-21T10:00:00Z";
+    if (schema.format === "email") return "qa@example.com";
+    if (schema.format === "uuid") return "11111111-1111-1111-1111-111111111111";
+    return "sample";
+  }
+  if (schema.type === "integer" || schema.type === "number") return 1;
+  if (schema.type === "boolean") return true;
+  if (schema.type === "array") return [sampleFromSchema(spec, schema.items)];
+  if (schema.type === "object" || schema.properties) {
+    return Object.fromEntries(
+      Object.entries(schema.properties || {}).map(([key, value]) => [key, sampleFromSchema(spec, value)])
+    );
+  }
+  if (schema.allOf?.length) {
+    return Object.assign({}, ...schema.allOf.map((part) => sampleFromSchema(spec, part)));
+  }
+  return "";
+}
+
+function resolveSchemaRef(spec, ref) {
+  const parts = ref.replace(/^#\//, "").split("/");
+  return parts.reduce((accumulator, part) => accumulator?.[part], spec);
 }
 
 function exportWorkspaceBackup() {
