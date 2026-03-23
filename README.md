@@ -17,6 +17,8 @@ Local-first MVP for manual QA exploratory testing.
 - includes a local SQL queries workspace for saving your own QA database queries
 - includes a local API test cases workspace for saving your own reusable API checks
 - includes a Swagger/OpenAPI JSON to Postman collection generator for API QA work
+- supports real linked records between sessions, SQL queries, and API cases
+- can generate saved API case records directly from a Swagger/OpenAPI JSON file
 - supports full workspace backup export/import as JSON
 
 ## Run it

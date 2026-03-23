@@ -485,10 +485,16 @@
           Related links / references
           <input id="sessionLinks" type="text" placeholder="SQL: Find user by email, API: Create order returns 201">
         </label>
+        <div>
+          <span class="hint-label">Link saved records</span>
+          <div id="sessionRecordLinks" class="record-link-picker empty-list">
+            <p class="microcopy">Save SQL queries or API cases first, then link them here.</p>
+          </div>
+        </div>
         <div class="tips-banner compact-banner">
           <div>
             <strong>What gets saved</strong>
-            <p>Brief, session notes, generated pack, bug drafts, tester, build, tags, related links, and save timestamp.</p>
+            <p>Brief, session notes, generated pack, bug drafts, tester, build, tags, linked records, related notes, and save timestamp.</p>
           </div>
         </div>
         <button id="saveSessionBtn" class="primary" type="button"><i class="fa-solid fa-bookmark"></i> Save Session</button>
@@ -603,6 +609,12 @@
               Related links / references
               <input id="sqlLinks" type="text" placeholder="Session: Password reset flow, API: Get user profile">
             </label>
+            <div>
+              <span class="hint-label">Link saved records</span>
+              <div id="sqlRecordLinks" class="record-link-picker empty-list">
+                <p class="microcopy">Save sessions or API cases first, then link them here.</p>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -674,6 +686,7 @@
 
             <div class="inline-actions">
               <button id="generatePostmanBtn" type="button" class="secondary"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Collection</button>
+              <button id="generateApiCasesBtn" type="button" class="ghost"><i class="fa-solid fa-layer-group"></i> Generate API Cases</button>
               <button id="downloadPostmanBtn" type="button" class="ghost"><i class="fa-solid fa-file-arrow-down"></i> Download Postman Collection</button>
             </div>
 
@@ -783,6 +796,12 @@
               Related links / references
               <input id="apiLinks" type="text" placeholder="Session: Checkout flow, SQL: Find order by id">
             </label>
+            <div>
+              <span class="hint-label">Link saved records</span>
+              <div id="apiRecordLinks" class="record-link-picker empty-list">
+                <p class="microcopy">Save sessions or SQL queries first, then link them here.</p>
+              </div>
+            </div>
           </div>
         </section>
 

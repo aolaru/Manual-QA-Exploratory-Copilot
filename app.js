@@ -211,6 +211,7 @@ const resetDraftBtn = document.querySelector("#resetDraftBtn");
 const historySearch = document.querySelector("#historySearch");
 const historyList = document.querySelector("#historyList");
 const historyCount = document.querySelector("#historyCount");
+const sessionRecordLinks = document.querySelector("#sessionRecordLinks");
 const draftList = document.querySelector("#draftList");
 const activeDraftLabel = document.querySelector("#activeDraftLabel");
 const activeDraftStamp = document.querySelector("#activeDraftStamp");
@@ -228,6 +229,7 @@ const sqlSafety = document.querySelector("#sqlSafety");
 const sqlQueryText = document.querySelector("#sqlQueryText");
 const sqlNotes = document.querySelector("#sqlNotes");
 const sqlLinks = document.querySelector("#sqlLinks");
+const sqlRecordLinks = document.querySelector("#sqlRecordLinks");
 const activeSqlLabel = document.querySelector("#activeSqlLabel");
 const activeSqlStamp = document.querySelector("#activeSqlStamp");
 const resetSqlBtn = document.querySelector("#resetSqlBtn");
@@ -243,6 +245,7 @@ const apiTags = document.querySelector("#apiTags");
 const postmanCollectionName = document.querySelector("#postmanCollectionName");
 const swaggerFileInput = document.querySelector("#swaggerFileInput");
 const generatePostmanBtn = document.querySelector("#generatePostmanBtn");
+const generateApiCasesBtn = document.querySelector("#generateApiCasesBtn");
 const downloadPostmanBtn = document.querySelector("#downloadPostmanBtn");
 const postmanSummary = document.querySelector("#postmanSummary");
 const apiAuth = document.querySelector("#apiAuth");
@@ -253,6 +256,7 @@ const apiCaseType = document.querySelector("#apiCaseType");
 const apiChecks = document.querySelector("#apiChecks");
 const apiNotes = document.querySelector("#apiNotes");
 const apiLinks = document.querySelector("#apiLinks");
+const apiRecordLinks = document.querySelector("#apiRecordLinks");
 const activeApiLabel = document.querySelector("#activeApiLabel");
 const activeApiStamp = document.querySelector("#activeApiStamp");
 const resetApiBtn = document.querySelector("#resetApiBtn");
@@ -315,6 +319,7 @@ updateFeatureTemplatePreview();
 renderSqlQueries();
 renderApiCases();
 renderDashboard();
+renderRecordLinkPickers();
 switchWorkspace("home");
 
 showHomeBtn.addEventListener("click", () => switchWorkspace("home"));
@@ -429,6 +434,7 @@ saveSessionBtn.addEventListener("click", () => {
   localStorage.setItem(sessionsKey, JSON.stringify(sessions));
   renderHistory();
   renderDashboard();
+  renderRecordLinkPickers();
   persistDraft();
   statusMessage.textContent = "Session saved to history.";
 });
@@ -493,6 +499,7 @@ saveSqlBtn.addEventListener("click", () => {
   persistSqlQueries();
   renderSqlQueries();
   renderDashboard();
+  renderRecordLinkPickers();
 });
 
 resetSqlBtn.addEventListener("click", () => {
@@ -529,6 +536,7 @@ saveApiBtn.addEventListener("click", () => {
   persistApiCases();
   renderApiCases();
   renderDashboard();
+  renderRecordLinkPickers();
 });
 
 resetApiBtn.addEventListener("click", () => {
@@ -541,6 +549,7 @@ exportDataBtn.addEventListener("click", exportWorkspaceBackup);
 importDataBtn.addEventListener("click", () => importDataInput.click());
 importDataInput.addEventListener("change", importWorkspaceBackup);
 generatePostmanBtn.addEventListener("click", generatePostmanCollectionFromUpload);
+generateApiCasesBtn.addEventListener("click", generateApiCasesFromUpload);
 downloadPostmanBtn.addEventListener("click", downloadGeneratedPostmanCollection);
 
 function getBriefState() {
@@ -557,6 +566,7 @@ function collectSessionState() {
     coverageNotes: valueOf("#coverageNotes"),
     observations: valueOf("#observations"),
     evidence: valueOf("#evidence"),
+    linkRefs: collectSelectedRecordRefs(sessionRecordLinks),
   };
 }
 
@@ -581,6 +591,7 @@ function collectSqlForm() {
     sql: sqlQueryText.value.trim(),
     notes: sqlNotes.value.trim(),
     links: sqlLinks.value.trim(),
+    linkRefs: collectSelectedRecordRefs(sqlRecordLinks),
   };
 }
 
@@ -599,6 +610,7 @@ function collectApiForm() {
     checks: apiChecks.value.trim(),
     notes: apiNotes.value.trim(),
     links: apiLinks.value.trim(),
+    linkRefs: collectSelectedRecordRefs(apiRecordLinks),
   };
 }
 
@@ -623,6 +635,39 @@ function generatePostmanCollectionFromUpload() {
       generatedPostmanCollection = null;
       renderPostmanSummary(null, error instanceof Error ? error.message : "Invalid OpenAPI file.");
       statusMessage.textContent = "Postman generation failed. Check that the uploaded file is valid OpenAPI / Swagger JSON.";
+    }
+  };
+  reader.readAsText(file);
+}
+
+function generateApiCasesFromUpload() {
+  const [file] = swaggerFileInput.files || [];
+  if (!file) {
+    statusMessage.textContent = "Choose a Swagger / OpenAPI JSON file first.";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      uploadedOpenApiSpec = JSON.parse(String(reader.result || "{}"));
+      const generatedCases = convertOpenApiToApiCases(uploadedOpenApiSpec);
+      const { added, updated } = upsertGeneratedApiCases(generatedCases);
+      renderApiCases();
+      renderDashboard();
+      renderRecordLinkPickers();
+      renderPostmanSummary({
+        ...(generatedPostmanCollection?.summary || {
+          name: uploadedOpenApiSpec.info?.title || "OpenAPI import",
+          requestCount: generatedCases.length,
+          folderCount: 0,
+          baseUrl: deriveBaseUrl(uploadedOpenApiSpec, detectOpenApiVersion(uploadedOpenApiSpec)),
+          authSchemes: describeAuthSchemes(uploadedOpenApiSpec, detectOpenApiVersion(uploadedOpenApiSpec)),
+        }),
+      });
+      statusMessage.textContent = `Generated ${added} new API cases and updated ${updated} existing ones from the OpenAPI file.`;
+    } catch (error) {
+      statusMessage.textContent = error instanceof Error ? error.message : "API case generation failed.";
     }
   };
   reader.readAsText(file);
@@ -662,6 +707,7 @@ function buildSessionRecord() {
       ...collectSessionState(),
       tags: parseCsvish(valueOf("#sessionTags")),
       links: parseCsvish(valueOf("#sessionLinks")),
+      linkRefs: collectSelectedRecordRefs(sessionRecordLinks),
     },
     bugDrafts,
   };
@@ -804,6 +850,7 @@ function renderHistory() {
         <p class="saved-meta">${escapeHtml(formatHistoryMeta(session))}</p>
         <p class="saved-submeta">${escapeHtml(session.summary)}</p>
         <div class="tag-row">${(session.session?.tags || []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>
+        ${renderResolvedLinksRow(session.session?.linkRefs)}
         ${renderLinksRow(session.session?.links)}
       </div>
       <div class="inline-actions">
@@ -849,6 +896,7 @@ function renderSqlQueries() {
         <p class="saved-meta">${escapeHtml(item.dialect)} • ${escapeHtml(item.category || "uncategorized")} • ${escapeHtml(formatDate(item.updatedAt))}</p>
         <p class="saved-submeta">${escapeHtml(item.notes || "No notes added.")}</p>
         <div class="tag-row">${parseCsvish(item.tags || "").map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>
+        ${renderResolvedLinksRow(item.linkRefs)}
         ${renderLinksRow(item.links)}
         <pre class="sql-snippet">${escapeHtml(trimSqlPreview(item.sql))}</pre>
       </div>
@@ -908,6 +956,7 @@ function renderApiCases() {
         <p class="saved-meta">${escapeHtml(item.method)} ${escapeHtml(item.endpoint)} • ${escapeHtml(item.environment || "no env")} • ${escapeHtml(formatDate(item.updatedAt))}</p>
         <p class="saved-submeta">${escapeHtml(item.notes || "No notes added.")}</p>
         <div class="tag-row">${parseCsvish(item.tags || "").map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>
+        ${renderResolvedLinksRow(item.linkRefs)}
         ${renderLinksRow(item.links)}
         <pre class="sql-snippet">${escapeHtml(trimApiPreview(item))}</pre>
       </div>
@@ -962,11 +1011,13 @@ historyList.addEventListener("click", (event) => {
     loadSession(session);
     statusMessage.textContent = "Saved session loaded.";
   } else if (action === "delete") {
+    removeRecordRefFromLinks(id);
     sessions = sessions.filter((item) => item.id !== id);
     localStorage.setItem(sessionsKey, JSON.stringify(sessions));
     if (currentSessionId === id) currentSessionId = null;
     renderHistory();
     renderDashboard();
+    renderRecordLinkPickers();
     statusMessage.textContent = "Saved session deleted.";
   }
 });
@@ -990,11 +1041,13 @@ sqlList.addEventListener("click", async (event) => {
       statusMessage.textContent = "Clipboard access failed for SQL query copy.";
     }
   } else if (action === "delete") {
+    removeRecordRefFromLinks(id);
     sqlQueries = sqlQueries.filter((query) => query.id !== id);
     if (activeSqlId === id) clearSqlForm();
     persistSqlQueries();
     renderSqlQueries();
     renderDashboard();
+    renderRecordLinkPickers();
     statusMessage.textContent = "SQL query deleted.";
   }
 });
@@ -1018,11 +1071,13 @@ apiList.addEventListener("click", async (event) => {
       statusMessage.textContent = "Clipboard access failed for API case copy.";
     }
   } else if (action === "delete") {
+    removeRecordRefFromLinks(id);
     apiCases = apiCases.filter((apiCase) => apiCase.id !== id);
     if (activeApiId === id) clearApiForm();
     persistApiCases();
     renderApiCases();
     renderDashboard();
+    renderRecordLinkPickers();
     statusMessage.textContent = "API case deleted.";
   }
 });
@@ -1049,6 +1104,7 @@ function loadSession(session) {
   renderPack(latestPack);
   bugDrafts = [...(session.bugDrafts || [])];
   clearDraftEditor(true);
+  setSelectedRecordRefs(sessionRecordLinks, session.session?.linkRefs || []);
   renderDraftList();
   renderHistory();
 }
@@ -1074,6 +1130,7 @@ function loadSqlIntoForm(item) {
   sqlQueryText.value = item.sql || "";
   sqlNotes.value = item.notes || "";
   sqlLinks.value = item.links || "";
+  setSelectedRecordRefs(sqlRecordLinks, item.linkRefs || []);
   renderSqlQueries();
 }
 
@@ -1092,6 +1149,7 @@ function loadApiIntoForm(item) {
   apiChecks.value = item.checks || "";
   apiNotes.value = item.notes || "";
   apiLinks.value = item.links || "";
+  setSelectedRecordRefs(apiRecordLinks, item.linkRefs || []);
   renderApiCases();
 }
 
@@ -1117,6 +1175,7 @@ function clearSqlForm() {
   sqlQueryText.value = "";
   sqlNotes.value = "";
   sqlLinks.value = "";
+  setSelectedRecordRefs(sqlRecordLinks, []);
   renderSqlQueries();
 }
 
@@ -1135,6 +1194,7 @@ function clearApiForm() {
   apiChecks.value = "";
   apiNotes.value = "";
   apiLinks.value = "";
+  setSelectedRecordRefs(apiRecordLinks, []);
   renderApiCases();
 }
 
@@ -1183,6 +1243,7 @@ ${pack.coverage.map((item) => `- ${item}`).join("\n")}
 - Tester: ${session.testerName || "_Not provided_"}
 - Build: ${session.buildRef || "_Not provided_"}
 - Tags: ${(session.tags || []).join(", ") || "_Not provided_"}
+- Linked records: ${formatLinkedRecordNames(session.linkRefs)}
 - Related links: ${(session.links || []).join(", ") || "_Not provided_"}
 
 ## Session Goal
@@ -1304,6 +1365,7 @@ function hydrateDraft() {
   try {
     const draft = JSON.parse(saved);
     fillAllFields(draft);
+    setSelectedRecordRefs(sessionRecordLinks, draft.linkRefs || []);
     bugDrafts = draft.bugDrafts || [];
     currentSessionId = draft.currentSessionId || null;
     activeDraftId = draft.activeDraftId || null;
@@ -1326,6 +1388,7 @@ function fillAllFields(values) {
   Object.entries(values).forEach(([key, value]) => {
     const node = document.querySelector(`#${key}`);
     if (!node) return;
+    if (Array.isArray(value)) return;
     node.value = value;
   });
   persistDraft();
@@ -1345,6 +1408,7 @@ function clearSessionFields() {
     const node = document.querySelector(selector);
     if (node) node.value = "";
   });
+  setSelectedRecordRefs(sessionRecordLinks, []);
 }
 
 function bindChipInputs() {
@@ -1660,6 +1724,126 @@ function renderLinksRow(links) {
   const items = Array.isArray(links) ? links : parseCsvish(links || "");
   if (!items.length) return "";
   return `<p class="saved-submeta"><strong>Related:</strong> ${escapeHtml(items.join(" • "))}</p>`;
+}
+
+function renderResolvedLinksRow(linkRefs) {
+  const items = resolveLinkRefs(linkRefs);
+  if (!items.length) return "";
+  return `<div class="tag-row">${items.map((item) => `<span class="tag">${escapeHtml(item.label)}</span>`).join("")}</div>`;
+}
+
+function renderRecordLinkPickers() {
+  renderRecordLinkPicker(sessionRecordLinks, getRecordLinkOptions(["sql", "api"]));
+  renderRecordLinkPicker(sqlRecordLinks, getRecordLinkOptions(["session", "api"]));
+  renderRecordLinkPicker(apiRecordLinks, getRecordLinkOptions(["session", "sql"]));
+}
+
+function renderRecordLinkPicker(container, options) {
+  const selectedRefs = collectSelectedRecordRefs(container);
+  container.replaceChildren();
+
+  if (!options.length) {
+    container.classList.add("empty-list");
+    container.innerHTML = `<p class="microcopy">No saved records available to link yet.</p>`;
+    return;
+  }
+
+  container.classList.remove("empty-list");
+  options.forEach((option) => {
+    const label = document.createElement("label");
+    label.className = "record-link-option";
+    label.innerHTML = `
+      <input type="checkbox" value="${escapeHtml(option.id)}" ${selectedRefs.includes(option.id) ? "checked" : ""}>
+      <span class="record-link-copy">
+        <strong>${escapeHtml(option.label)}</strong>
+        <span class="microcopy">${escapeHtml(option.meta)}</span>
+      </span>
+    `;
+    container.appendChild(label);
+  });
+}
+
+function collectSelectedRecordRefs(container) {
+  return [...container.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
+}
+
+function setSelectedRecordRefs(container, refs) {
+  const selected = new Set(refs || []);
+  container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    input.checked = selected.has(input.value);
+  });
+}
+
+function getRecordLinkOptions(types) {
+  const options = [];
+  if (types.includes("session")) {
+    sessions.forEach((session) => {
+      options.push({
+        id: session.id,
+        label: `Session: ${session.featureName}`,
+        meta: `${session.session?.testerName || "No tester"} • ${formatDate(session.savedAt)}`,
+      });
+    });
+  }
+  if (types.includes("sql")) {
+    sqlQueries.forEach((item) => {
+      options.push({
+        id: item.id,
+        label: `SQL: ${item.name}`,
+        meta: `${item.dialect} • ${item.category || "uncategorized"}`,
+      });
+    });
+  }
+  if (types.includes("api")) {
+    apiCases.forEach((item) => {
+      options.push({
+        id: item.id,
+        label: `API: ${item.name}`,
+        meta: `${item.method} ${item.endpoint}`,
+      });
+    });
+  }
+  return options;
+}
+
+function resolveLinkRefs(linkRefs) {
+  return (linkRefs || [])
+    .map((id) => {
+      const session = sessions.find((item) => item.id === id);
+      if (session) return { id, label: `Session: ${session.featureName}` };
+      const sql = sqlQueries.find((item) => item.id === id);
+      if (sql) return { id, label: `SQL: ${sql.name}` };
+      const api = apiCases.find((item) => item.id === id);
+      if (api) return { id, label: `API: ${api.name}` };
+      return null;
+    })
+    .filter(Boolean);
+}
+
+function formatLinkedRecordNames(linkRefs) {
+  const labels = resolveLinkRefs(linkRefs).map((item) => item.label);
+  return labels.length ? labels.join(", ") : "_Not provided_";
+}
+
+function removeRecordRefFromLinks(targetId) {
+  sessions = sessions.map((session) => ({
+    ...session,
+    session: {
+      ...session.session,
+      linkRefs: (session.session?.linkRefs || []).filter((id) => id !== targetId),
+    },
+  }));
+  sqlQueries = sqlQueries.map((item) => ({
+    ...item,
+    linkRefs: (item.linkRefs || []).filter((id) => id !== targetId),
+  }));
+  apiCases = apiCases.map((item) => ({
+    ...item,
+    linkRefs: (item.linkRefs || []).filter((id) => id !== targetId),
+  }));
+  localStorage.setItem(sessionsKey, JSON.stringify(sessions));
+  persistSqlQueries();
+  persistApiCases();
 }
 
 function convertOpenApiToPostmanCollection(spec, collectionNameOverride = "") {
@@ -1978,6 +2162,135 @@ function resolveSchemaRef(spec, ref) {
   return parts.reduce((accumulator, part) => accumulator?.[part], spec);
 }
 
+function convertOpenApiToApiCases(spec) {
+  const version = detectOpenApiVersion(spec);
+  const baseUrl = deriveBaseUrl(spec, version);
+  const sourceName = spec.info?.title || "Swagger import";
+  const generatedAt = new Date().toISOString();
+  const results = [];
+
+  Object.entries(spec.paths || {}).forEach(([pathName, pathItem]) => {
+    Object.entries(pathItem || {}).forEach(([method, operation]) => {
+      const normalizedMethod = method.toUpperCase();
+      if (!["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"].includes(normalizedMethod)) return;
+
+      const request = buildPostmanRequest({
+        version,
+        spec,
+        pathName,
+        method: normalizedMethod,
+        operation: operation || {},
+        pathItem: pathItem || {},
+        baseUrl,
+      });
+
+      const body = request.item.request.body?.raw || "";
+      const headers = (request.item.request.header || [])
+        .map((header) => `${header.key}: ${header.value}`)
+        .join("\n");
+      const checks = [
+        request.summary.expectedStatus ? `status is ${request.summary.expectedStatus}` : "",
+        ...extractTopLevelResponseChecks(spec, version, operation),
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      results.push({
+        id: createId("api"),
+        name: request.item.name,
+        method: normalizedMethod,
+        environment: baseUrl,
+        endpoint: pathName,
+        tags: (operation.tags || []).join(", "),
+        auth: describeOperationAuth(spec, operation, version),
+        headers,
+        body,
+        expectedStatus: request.summary.expectedStatus,
+        caseType: "Positive",
+        checks,
+        notes: [
+          `Generated from ${sourceName}.`,
+          operation.summary || "",
+          operation.description || "",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+        links: "",
+        linkRefs: [],
+        source: "swagger-import",
+        sourceName,
+        createdAt: generatedAt,
+        updatedAt: generatedAt,
+      });
+    });
+  });
+
+  return results;
+}
+
+function upsertGeneratedApiCases(generatedCases) {
+  let added = 0;
+  let updated = 0;
+
+  generatedCases.forEach((generatedCase) => {
+    const existingIndex = apiCases.findIndex(
+      (item) => item.method === generatedCase.method && item.endpoint === generatedCase.endpoint
+    );
+
+    if (existingIndex >= 0) {
+      const existing = apiCases[existingIndex];
+      apiCases[existingIndex] = {
+        ...generatedCase,
+        id: existing.id,
+        createdAt: existing.createdAt || generatedCase.createdAt,
+        links: existing.links || generatedCase.links,
+        linkRefs: existing.linkRefs || generatedCase.linkRefs,
+        notes: existing.notes && existing.source !== "swagger-import" ? existing.notes : generatedCase.notes,
+        updatedAt: new Date().toISOString(),
+      };
+      updated += 1;
+    } else {
+      apiCases.unshift(generatedCase);
+      added += 1;
+    }
+  });
+
+  persistApiCases();
+  return { added, updated };
+}
+
+function describeOperationAuth(spec, operation, version) {
+  const security = operation.security || spec.security || [];
+  if (!security.length) return "";
+  const schemeName = Object.keys(security[0])[0];
+  const scheme = getSecurityScheme(spec, version, schemeName);
+  if (!scheme) return schemeName;
+  if (scheme.type === "http") return `${scheme.scheme || "http"} auth`;
+  if (scheme.type === "apiKey") return `api key in ${scheme.in || "header"} (${scheme.name || schemeName})`;
+  return schemeName;
+}
+
+function extractTopLevelResponseChecks(spec, version, operation) {
+  const expectedStatus = deriveExpectedStatus(operation.responses || {});
+  const response = operation.responses?.[expectedStatus];
+  if (!response) return [];
+
+  if (version === 3) {
+    const media = Object.values(response.content || {})[0];
+    return extractSchemaPropertyChecks(spec, media?.schema);
+  }
+
+  return extractSchemaPropertyChecks(spec, response.schema);
+}
+
+function extractSchemaPropertyChecks(spec, schema) {
+  const resolved = schema?.$ref ? resolveSchemaRef(spec, schema.$ref) : schema;
+  const properties = resolved?.properties || {};
+  return Object.keys(properties)
+    .slice(0, 5)
+    .map((key) => `response contains ${key}`);
+}
+
 function exportWorkspaceBackup() {
   const payload = {
     exportedAt: new Date().toISOString(),
@@ -2011,6 +2324,7 @@ function importWorkspaceBackup(event) {
       renderSqlQueries();
       renderApiCases();
       renderDashboard();
+      renderRecordLinkPickers();
       statusMessage.textContent = "Workspace backup imported.";
     } catch {
       statusMessage.textContent = "Backup import failed. Use a JSON export created by this tool.";
