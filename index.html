@@ -684,9 +684,25 @@
               <input id="swaggerFileInput" type="file" accept="application/json,.json">
             </label>
 
+            <div class="snapshot-grid">
+              <label>
+                API import mode
+                <select id="apiImportMode">
+                  <option value="create-only">Create only new cases</option>
+                  <option value="upsert" selected>Update matching cases</option>
+                  <option value="replace-generated">Replace generated cases</option>
+                </select>
+              </label>
+              <label>
+                Generated tags suffix
+                <input id="apiImportTagSuffix" type="text" placeholder="swagger-import, smoke">
+              </label>
+            </div>
+
             <div class="inline-actions">
               <button id="generatePostmanBtn" type="button" class="secondary"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Collection</button>
-              <button id="generateApiCasesBtn" type="button" class="ghost"><i class="fa-solid fa-layer-group"></i> Generate API Cases</button>
+              <button id="previewApiCasesBtn" type="button" class="ghost"><i class="fa-solid fa-list-check"></i> Preview API Cases</button>
+              <button id="generateApiCasesBtn" type="button" class="ghost"><i class="fa-solid fa-layer-group"></i> Import API Cases</button>
               <button id="downloadPostmanBtn" type="button" class="ghost"><i class="fa-solid fa-file-arrow-down"></i> Download Postman Collection</button>
             </div>
 
@@ -698,6 +714,10 @@
             </div>
 
             <div id="postmanSummary" class="template-preview">No OpenAPI file loaded yet.</div>
+            <div id="apiImportSummary" class="template-preview">No API import preview yet.</div>
+            <div id="apiImportPreview" class="saved-list empty-list">
+              <p class="microcopy">Preview generated API cases before importing them.</p>
+            </div>
           </div>
         </section>
 
@@ -845,6 +865,7 @@
             <li>Session notes export in plain text for sharing or archiving.</li>
             <li>Jira paste-format export for defect filing.</li>
             <li>Saved local history for future exploratory passes.</li>
+            <li><a href="changelog.html">View changelog</a> for shipped updates and current work.</li>
           </ul>
         </section>
       </div>

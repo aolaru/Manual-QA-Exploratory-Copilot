@@ -19,6 +19,8 @@ Local-first MVP for manual QA exploratory testing.
 - includes a Swagger/OpenAPI JSON to Postman collection generator for API QA work
 - supports real linked records between sessions, SQL queries, and API cases
 - can generate saved API case records directly from a Swagger/OpenAPI JSON file
+- supports Swagger API import preview with create/update/replace modes
+- generates richer API checks and negative-case ideas from imported specs
 - supports full workspace backup export/import as JSON
 
 ## Run it

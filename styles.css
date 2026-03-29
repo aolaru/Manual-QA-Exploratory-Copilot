@@ -26,10 +26,23 @@ body {
     linear-gradient(180deg, #fcf7f1 0%, var(--bg) 100%);
 }
 
+a {
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
 .shell {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
   padding: 12px 0 36px;
+}
+
+.subpage-shell {
+  padding-bottom: 56px;
 }
 
 .hero-actions,
@@ -49,6 +62,12 @@ body {
 .hero-actions {
   gap: 6px;
   justify-content: flex-end;
+}
+
+.subpage-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .hero-bar {
@@ -559,6 +578,15 @@ summary {
   background: rgba(255, 255, 255, 0.74);
 }
 
+.changelog-list {
+  display: grid;
+  gap: 16px;
+}
+
+.changelog-entry {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .saved-title-row {
   display: flex;
   flex-wrap: wrap;
@@ -708,6 +736,10 @@ summary {
   margin: 0;
   padding-left: 18px;
   color: var(--muted);
+}
+
+.changelog-points {
+  margin-top: 12px;
 }
 
 .footer-list li + li {

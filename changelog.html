@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Field Notes QA Copilot Changelog</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell subpage-shell">
+    <section class="hero-bar card">
+      <div class="hero-brand">
+        <img src="cover-mark.svg" alt="Field Notes QA Copilot logo" class="hero-logo">
+        <div>
+          <p class="eyebrow">Product Changelog</p>
+          <h1>Field Notes QA Copilot Updates</h1>
+          <p class="lede">A running log of features, workflow improvements, and fixes shipped across the exploratory, SQL, API, and deployment layers.</p>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <a href="index.html" class="ghost subpage-link"><i class="fa-solid fa-arrow-left"></i> Back To App</a>
+      </div>
+    </section>
+
+    <section class="panel card">
+      <div class="card-header">
+        <h2><i class="fa-solid fa-clock-rotate-left"></i> Release Timeline</h2>
+        <p>Newest changes first. Includes the current unreleased work already present in the local project.</p>
+      </div>
+
+      <div class="changelog-list">
+        <article class="card changelog-entry">
+          <div class="saved-title-row">
+            <strong>Unreleased</strong>
+            <span class="pill">Current Working Tree</span>
+          </div>
+          <p class="saved-meta">Swagger import preview + smarter API-case generation</p>
+          <ul class="footer-list changelog-points">
+            <li>Added API import preview before saving generated cases.</li>
+            <li>Added import modes for create-only, update matching, and replace generated.</li>
+            <li>Added tag suffix support for generated API cases.</li>
+            <li>Improved generated assertions with required response fields, enum checks, and response hygiene checks.</li>
+            <li>Added negative-case ideas inferred from parameters, request body requirements, and documented error codes.</li>
+          </ul>
+        </article>
+
+        <article class="card changelog-entry">
+          <div class="saved-title-row">
+            <strong>GitHub Pages Deployment</strong>
+            <span class="pill">4b307f3</span>
+          </div>
+          <p class="saved-meta">Automation and publishing</p>
+          <ul class="footer-list changelog-points">
+            <li>Added a GitHub Actions workflow to deploy the static app to GitHub Pages.</li>
+            <li>Prepared the repository for action-based publishing from `main`.</li>
+          </ul>
+        </article>
+
+        <article class="card changelog-entry">
+          <div class="saved-title-row">
+            <strong>Linked Records + Swagger API Cases</strong>
+            <span class="pill">f051413</span>
+          </div>
+          <p class="saved-meta">Cross-workspace knowledge linking</p>
+          <ul class="footer-list changelog-points">
+            <li>Added real linked records between exploratory sessions, SQL queries, and API cases.</li>
+            <li>Added generated API-case records directly from Swagger/OpenAPI imports.</li>
+            <li>Added automatic cleanup of broken links when linked records are deleted.</li>
+          </ul>
+        </article>
+
+        <article class="card changelog-entry">
+          <div class="saved-title-row">
+            <strong>Swagger To Postman</strong>
+            <span class="pill">1ef58d0</span>
+          </div>
+          <p class="saved-meta">API tooling expansion</p>
+          <ul class="footer-list changelog-points">
+            <li>Added Swagger/OpenAPI JSON upload in the API workspace.</li>
+            <li>Generated Postman collections with folders by tag, request bodies, auth hints, and basic test scripts.</li>
+            <li>Added Postman collection download from the browser UI.</li>
+          </ul>
+        </article>
+
+        <article class="card changelog-entry">
+          <div class="saved-title-row">
+            <strong>Dashboard + JSON Backup</strong>
+            <span class="pill">a1f7e0c</span>
+          </div>
+          <p class="saved-meta">Workspace structure and persistence</p>
+          <ul class="footer-list changelog-points">
+            <li>Added a Home dashboard with workspace counts, recent activity, and shared tags.</li>
+            <li>Added JSON export/import for local workspace backups.</li>
+            <li>Added richer metadata and cross-workspace reference fields.</li>
+          </ul>
+        </article>
+
+        <article class="card changelog-entry">
+          <div class="saved-title-row">
+            <strong>UX + Session Workflow Refinement</strong>
+            <span class="pill">d081d77</span>
+          </div>
+          <p class="saved-meta">Manual QA workflow improvements</p>
+          <ul class="footer-list changelog-points">
+            <li>Improved top-level UX and made the app easier to understand.</li>
+            <li>Added saved sessions, multiple bug drafts, feature templates, and risk templates.</li>
+            <li>Added explicit export labels and Jira-friendly text export flow.</li>
+          </ul>
+        </article>
+
+        <article class="card changelog-entry">
+          <div class="saved-title-row">
+            <strong>Initial MVP</strong>
+            <span class="pill">787197c</span>
+          </div>
+          <p class="saved-meta">First exploratory testing release</p>
+          <ul class="footer-list changelog-points">
+            <li>Shipped the first manual QA exploratory copilot.</li>
+            <li>Added feature brief intake, generated session packs, bug drafting, and export support.</li>
+            <li>Established the local-first static application base.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

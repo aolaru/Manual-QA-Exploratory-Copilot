@@ -244,10 +244,15 @@ const apiEndpoint = document.querySelector("#apiEndpoint");
 const apiTags = document.querySelector("#apiTags");
 const postmanCollectionName = document.querySelector("#postmanCollectionName");
 const swaggerFileInput = document.querySelector("#swaggerFileInput");
+const apiImportMode = document.querySelector("#apiImportMode");
+const apiImportTagSuffix = document.querySelector("#apiImportTagSuffix");
 const generatePostmanBtn = document.querySelector("#generatePostmanBtn");
+const previewApiCasesBtn = document.querySelector("#previewApiCasesBtn");
 const generateApiCasesBtn = document.querySelector("#generateApiCasesBtn");
 const downloadPostmanBtn = document.querySelector("#downloadPostmanBtn");
 const postmanSummary = document.querySelector("#postmanSummary");
+const apiImportSummary = document.querySelector("#apiImportSummary");
+const apiImportPreview = document.querySelector("#apiImportPreview");
 const apiAuth = document.querySelector("#apiAuth");
 const apiHeaders = document.querySelector("#apiHeaders");
 const apiBody = document.querySelector("#apiBody");
@@ -308,6 +313,7 @@ let apiCases = loadApiCases();
 let activeApiId = null;
 let uploadedOpenApiSpec = null;
 let generatedPostmanCollection = null;
+let pendingApiImportCases = [];
 
 hydrateDraft();
 bindAutosave();
@@ -549,8 +555,16 @@ exportDataBtn.addEventListener("click", exportWorkspaceBackup);
 importDataBtn.addEventListener("click", () => importDataInput.click());
 importDataInput.addEventListener("change", importWorkspaceBackup);
 generatePostmanBtn.addEventListener("click", generatePostmanCollectionFromUpload);
+previewApiCasesBtn.addEventListener("click", previewApiCasesFromUpload);
 generateApiCasesBtn.addEventListener("click", generateApiCasesFromUpload);
 downloadPostmanBtn.addEventListener("click", downloadGeneratedPostmanCollection);
+apiImportMode.addEventListener("change", () => {
+  if (pendingApiImportCases.length) renderApiImportPreview(pendingApiImportCases, apiImportMode.value);
+});
+swaggerFileInput.addEventListener("change", () => {
+  pendingApiImportCases = [];
+  renderApiImportPreview([], apiImportMode.value);
+});
 
 function getBriefState() {
   return Object.fromEntries(new FormData(form).entries());
@@ -615,16 +629,9 @@ function collectApiForm() {
 }
 
 function generatePostmanCollectionFromUpload() {
-  const [file] = swaggerFileInput.files || [];
-  if (!file) {
-    statusMessage.textContent = "Choose a Swagger / OpenAPI JSON file first.";
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = () => {
+  withUploadedOpenApiSpec((spec) => {
     try {
-      uploadedOpenApiSpec = JSON.parse(String(reader.result || "{}"));
+      uploadedOpenApiSpec = spec;
       generatedPostmanCollection = convertOpenApiToPostmanCollection(
         uploadedOpenApiSpec,
         postmanCollectionName.value.trim()
@@ -636,26 +643,35 @@ function generatePostmanCollectionFromUpload() {
       renderPostmanSummary(null, error instanceof Error ? error.message : "Invalid OpenAPI file.");
       statusMessage.textContent = "Postman generation failed. Check that the uploaded file is valid OpenAPI / Swagger JSON.";
     }
-  };
-  reader.readAsText(file);
+  });
+}
+
+function previewApiCasesFromUpload() {
+  withUploadedOpenApiSpec((spec) => {
+    try {
+      uploadedOpenApiSpec = spec;
+      pendingApiImportCases = convertOpenApiToApiCases(spec, apiImportTagSuffix.value.trim());
+      renderApiImportPreview(pendingApiImportCases, apiImportMode.value);
+      statusMessage.textContent = "API case preview generated from the uploaded OpenAPI file.";
+    } catch (error) {
+      pendingApiImportCases = [];
+      renderApiImportPreview([], apiImportMode.value, error instanceof Error ? error.message : "Preview failed.");
+      statusMessage.textContent = "API case preview failed.";
+    }
+  });
 }
 
 function generateApiCasesFromUpload() {
-  const [file] = swaggerFileInput.files || [];
-  if (!file) {
-    statusMessage.textContent = "Choose a Swagger / OpenAPI JSON file first.";
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = () => {
+  withUploadedOpenApiSpec((spec) => {
     try {
-      uploadedOpenApiSpec = JSON.parse(String(reader.result || "{}"));
-      const generatedCases = convertOpenApiToApiCases(uploadedOpenApiSpec);
-      const { added, updated } = upsertGeneratedApiCases(generatedCases);
+      uploadedOpenApiSpec = spec;
+      const generatedCases =
+        pendingApiImportCases.length ? pendingApiImportCases : convertOpenApiToApiCases(uploadedOpenApiSpec, apiImportTagSuffix.value.trim());
+      const { added, updated, removed, skipped } = applyGeneratedApiCases(generatedCases, apiImportMode.value);
       renderApiCases();
       renderDashboard();
       renderRecordLinkPickers();
+      renderApiImportPreview(generatedCases, apiImportMode.value);
       renderPostmanSummary({
         ...(generatedPostmanCollection?.summary || {
           name: uploadedOpenApiSpec.info?.title || "OpenAPI import",
@@ -665,12 +681,11 @@ function generateApiCasesFromUpload() {
           authSchemes: describeAuthSchemes(uploadedOpenApiSpec, detectOpenApiVersion(uploadedOpenApiSpec)),
         }),
       });
-      statusMessage.textContent = `Generated ${added} new API cases and updated ${updated} existing ones from the OpenAPI file.`;
+      statusMessage.textContent = `Imported API cases: ${added} added, ${updated} updated, ${skipped} skipped, ${removed} removed.`;
     } catch (error) {
       statusMessage.textContent = error instanceof Error ? error.message : "API case generation failed.";
     }
-  };
-  reader.readAsText(file);
+  });
 }
 
 function downloadGeneratedPostmanCollection() {
@@ -1212,6 +1227,66 @@ function renderPostmanSummary(summary, errorMessage = "") {
   postmanSummary.textContent =
     `${summary.name} • ${summary.requestCount} requests • ${summary.folderCount} folders • ` +
     `base URL ${summary.baseUrl || "not detected"} • auth ${summary.authSchemes || "not detected"}`;
+}
+
+function renderApiImportPreview(generatedCases, mode, errorMessage = "") {
+  if (errorMessage) {
+    apiImportSummary.textContent = errorMessage;
+    apiImportPreview.classList.add("empty-list");
+    apiImportPreview.innerHTML = `<p class="microcopy">Preview generated API cases before importing them.</p>`;
+    return;
+  }
+
+  if (!generatedCases.length) {
+    apiImportSummary.textContent = "No API import preview yet.";
+    apiImportPreview.classList.add("empty-list");
+    apiImportPreview.innerHTML = `<p class="microcopy">Preview generated API cases before importing them.</p>`;
+    return;
+  }
+
+  const plan = summarizeImportPlan(generatedCases, mode);
+  apiImportSummary.textContent =
+    `${generatedCases.length} cases previewed • ${plan.toCreate} new • ${plan.toUpdate} matching existing • ` +
+    `${plan.toSkip} skipped in ${labelImportMode(mode)} mode`;
+
+  apiImportPreview.replaceChildren();
+  apiImportPreview.classList.remove("empty-list");
+  generatedCases.slice(0, 8).forEach((item) => {
+    const existing = findExistingApiCase(item);
+    const article = document.createElement("article");
+    article.className = "saved-item";
+    article.innerHTML = `
+      <div>
+        <div class="saved-title-row">
+          <strong>${escapeHtml(item.name)}</strong>
+          <span class="status-pill ${existing ? "status-ready-to-file" : "status-new"}">${existing ? "Existing match" : "New"}</span>
+        </div>
+        <p class="saved-meta">${escapeHtml(item.method)} ${escapeHtml(item.endpoint)} • ${escapeHtml(item.expectedStatus || "no expected status")}</p>
+        <p class="saved-submeta">${escapeHtml(item.checks.split("\n").slice(0, 3).join(" • ") || "No checks generated.")}</p>
+        <div class="tag-row">${parseCsvish(item.tags || "").map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>
+      </div>
+    `;
+    apiImportPreview.appendChild(article);
+  });
+}
+
+function withUploadedOpenApiSpec(onLoaded) {
+  const [file] = swaggerFileInput.files || [];
+  if (!file) {
+    statusMessage.textContent = "Choose a Swagger / OpenAPI JSON file first.";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const spec = JSON.parse(String(reader.result || "{}"));
+      onLoaded(spec);
+    } catch (error) {
+      statusMessage.textContent = error instanceof Error ? error.message : "Invalid OpenAPI file.";
+    }
+  };
+  reader.readAsText(file);
 }
 
 function buildMarkdown(sessionRecord) {
@@ -2162,7 +2237,7 @@ function resolveSchemaRef(spec, ref) {
   return parts.reduce((accumulator, part) => accumulator?.[part], spec);
 }
 
-function convertOpenApiToApiCases(spec) {
+function convertOpenApiToApiCases(spec, extraTags = "") {
   const version = detectOpenApiVersion(spec);
   const baseUrl = deriveBaseUrl(spec, version);
   const sourceName = spec.info?.title || "Swagger import";
@@ -2188,12 +2263,9 @@ function convertOpenApiToApiCases(spec) {
       const headers = (request.item.request.header || [])
         .map((header) => `${header.key}: ${header.value}`)
         .join("\n");
-      const checks = [
-        request.summary.expectedStatus ? `status is ${request.summary.expectedStatus}` : "",
-        ...extractTopLevelResponseChecks(spec, version, operation),
-      ]
-        .filter(Boolean)
-        .join("\n");
+      const checks = buildGeneratedChecks(spec, version, operation, request.summary.expectedStatus);
+      const negativeIdeas = buildNegativeCaseIdeas(spec, version, operation, pathItem);
+      const tags = unique([...(operation.tags || []), ...parseCsvish(extraTags), "swagger-import"]).join(", ");
 
       results.push({
         id: createId("api"),
@@ -2201,7 +2273,7 @@ function convertOpenApiToApiCases(spec) {
         method: normalizedMethod,
         environment: baseUrl,
         endpoint: pathName,
-        tags: (operation.tags || []).join(", "),
+        tags,
         auth: describeOperationAuth(spec, operation, version),
         headers,
         body,
@@ -2212,6 +2284,7 @@ function convertOpenApiToApiCases(spec) {
           `Generated from ${sourceName}.`,
           operation.summary || "",
           operation.description || "",
+          negativeIdeas.length ? `Negative ideas:\n${negativeIdeas.map((idea) => `- ${idea}`).join("\n")}` : "",
         ]
           .filter(Boolean)
           .join("\n\n"),
@@ -2228,16 +2301,28 @@ function convertOpenApiToApiCases(spec) {
   return results;
 }
 
-function upsertGeneratedApiCases(generatedCases) {
+function applyGeneratedApiCases(generatedCases, mode = "upsert") {
   let added = 0;
   let updated = 0;
+  let skipped = 0;
+  let removed = 0;
+
+  if (mode === "replace-generated") {
+    const generatedKeys = new Set(generatedCases.map((item) => `${item.method} ${item.endpoint}`));
+    const beforeCount = apiCases.length;
+    apiCases = apiCases.filter((item) => item.source !== "swagger-import" || generatedKeys.has(`${item.method} ${item.endpoint}`));
+    removed = beforeCount - apiCases.length;
+  }
 
   generatedCases.forEach((generatedCase) => {
-    const existingIndex = apiCases.findIndex(
-      (item) => item.method === generatedCase.method && item.endpoint === generatedCase.endpoint
-    );
+    const existingIndex = apiCases.findIndex((item) => item.method === generatedCase.method && item.endpoint === generatedCase.endpoint);
 
     if (existingIndex >= 0) {
+      if (mode === "create-only") {
+        skipped += 1;
+        return;
+      }
+
       const existing = apiCases[existingIndex];
       apiCases[existingIndex] = {
         ...generatedCase,
@@ -2256,7 +2341,7 @@ function upsertGeneratedApiCases(generatedCases) {
   });
 
   persistApiCases();
-  return { added, updated };
+  return { added, updated, skipped, removed };
 }
 
 function describeOperationAuth(spec, operation, version) {
@@ -2289,6 +2374,129 @@ function extractSchemaPropertyChecks(spec, schema) {
   return Object.keys(properties)
     .slice(0, 5)
     .map((key) => `response contains ${key}`);
+}
+
+function buildGeneratedChecks(spec, version, operation, expectedStatus) {
+  const responseChecks = extractTopLevelResponseChecks(spec, version, operation);
+  const requiredChecks = extractRequiredResponseChecks(spec, version, operation);
+  const enumChecks = extractEnumResponseChecks(spec, version, operation);
+  const hygieneChecks = [
+    "response does not expose stack trace fields",
+    "response does not expose internal debug fields",
+  ];
+
+  return unique([
+    expectedStatus ? `status is ${expectedStatus}` : "",
+    ...requiredChecks,
+    ...responseChecks,
+    ...enumChecks,
+    ...hygieneChecks,
+  ])
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildNegativeCaseIdeas(spec, version, operation, pathItem) {
+  const parameters = collectOperationParameters(version, operation, pathItem);
+  const ideas = [];
+
+  parameters.forEach((parameter) => {
+    if (parameter.required) ideas.push(`omit required ${parameter.in} parameter ${parameter.name}`);
+    const schema = parameter.schema || parameter;
+    if (schema.enum?.length) ideas.push(`use an invalid value outside enum for ${parameter.name}`);
+    if (schema.type === "string") ideas.push(`send empty string and oversized input for ${parameter.name}`);
+    if (schema.type === "integer" || schema.type === "number") ideas.push(`send out-of-range numeric value for ${parameter.name}`);
+  });
+
+  const responses = Object.keys(operation.responses || {});
+  if (responses.includes("401")) ideas.push("call endpoint without valid authentication");
+  if (responses.includes("403")) ideas.push("call endpoint with insufficient permissions");
+  if (responses.includes("404")) ideas.push("use a non-existent resource id");
+  if (responses.includes("409")) ideas.push("repeat request to trigger conflict behavior");
+  if (responses.includes("422") || responses.includes("400")) ideas.push("send malformed payload to verify validation errors");
+  if (responses.includes("429")) ideas.push("repeat calls quickly to verify rate limiting");
+
+  const bodySchema = getPrimaryRequestSchema(version, operation);
+  if (bodySchema) {
+    const required = resolveEffectiveSchema(spec, bodySchema).required || [];
+    required.slice(0, 4).forEach((field) => ideas.push(`omit required body field ${field}`));
+  }
+
+  return unique(ideas).slice(0, 8);
+}
+
+function extractRequiredResponseChecks(spec, version, operation) {
+  const schema = getPrimaryResponseSchema(spec, version, operation);
+  const resolved = resolveEffectiveSchema(spec, schema);
+  return (resolved.required || []).slice(0, 5).map((key) => `response requires ${key}`);
+}
+
+function extractEnumResponseChecks(spec, version, operation) {
+  const schema = getPrimaryResponseSchema(spec, version, operation);
+  const resolved = resolveEffectiveSchema(spec, schema);
+  return Object.entries(resolved.properties || {})
+    .filter(([, value]) => value.enum?.length)
+    .slice(0, 4)
+    .map(([key, value]) => `${key} is one of ${value.enum.slice(0, 4).join(", ")}`);
+}
+
+function getPrimaryResponseSchema(spec, version, operation) {
+  const expectedStatus = deriveExpectedStatus(operation.responses || {});
+  const response = operation.responses?.[expectedStatus];
+  if (!response) return null;
+  if (version === 3) {
+    const media = Object.values(response.content || {})[0];
+    return media?.schema || null;
+  }
+  return response.schema || null;
+}
+
+function getPrimaryRequestSchema(version, operation) {
+  if (version === 3) {
+    const media = Object.values(operation.requestBody?.content || {})[0];
+    return media?.schema || null;
+  }
+  const bodyParam = (operation.parameters || []).find((parameter) => parameter.in === "body");
+  return bodyParam?.schema || null;
+}
+
+function resolveEffectiveSchema(spec, schema) {
+  const resolved = schema?.$ref ? resolveSchemaRef(spec, schema.$ref) : schema || {};
+  if (resolved.allOf?.length) {
+    return resolved.allOf.reduce((accumulator, part) => {
+      const chunk = resolveEffectiveSchema(spec, part);
+      return {
+        ...accumulator,
+        properties: { ...(accumulator.properties || {}), ...(chunk.properties || {}) },
+        required: unique([...(accumulator.required || []), ...(chunk.required || [])]),
+      };
+    }, { properties: {}, required: [] });
+  }
+  return resolved;
+}
+
+function summarizeImportPlan(generatedCases, mode) {
+  return generatedCases.reduce((accumulator, item) => {
+    const existing = findExistingApiCase(item);
+    if (!existing) {
+      accumulator.toCreate += 1;
+    } else if (mode === "create-only") {
+      accumulator.toSkip += 1;
+    } else {
+      accumulator.toUpdate += 1;
+    }
+    return accumulator;
+  }, { toCreate: 0, toUpdate: 0, toSkip: 0 });
+}
+
+function findExistingApiCase(item) {
+  return apiCases.find((existing) => existing.method === item.method && existing.endpoint === item.endpoint) || null;
+}
+
+function labelImportMode(mode) {
+  if (mode === "create-only") return "create-only";
+  if (mode === "replace-generated") return "replace-generated";
+  return "update";
 }
 
 function exportWorkspaceBackup() {
